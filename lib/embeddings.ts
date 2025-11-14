@@ -1,5 +1,3 @@
-import fetch from 'node-fetch';
-
 const OPENAI_EMBEDDING_ENDPOINT = 'https://api.openai.com/v1/embeddings';
 const OPENAI_EMBEDDING_MODEL =
   process.env.OPENAI_EMBEDDING_MODEL || 'text-embedding-3-small';

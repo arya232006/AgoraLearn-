@@ -1,4 +1,3 @@
-import fetch from 'node-fetch';
 import crypto from 'crypto';
 
 const APP_ID = process.env.AGORA_APP_ID as string;
