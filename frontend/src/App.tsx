@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-const API_BASE = "https://<your-backend>.vercel.app"; // TODO: replace after backend deploy
+const API_BASE = "https://agora-learn-uv27.vercel.app"; // TODO: replace after backend deploy
 
 function App() {
   const [notes, setNotes] = useState("");
