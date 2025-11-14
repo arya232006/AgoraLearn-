@@ -1,9 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Busboy from 'busboy';
 import mammoth from 'mammoth';
-// Import Tesseract dynamically inside the OCR branch to avoid module-load failures
 import { randomUUID } from 'crypto';
-import { ocrWithGptVision } from '../lib/vision';
 import { chunkText } from '../lib/chunk';
 import { embedText } from '../lib/embeddings';
 import { supabase } from '../lib/supabase';
@@ -68,54 +66,12 @@ async function extractTextFromFile(fileBuffer: Buffer, filename: string, mimeTyp
     return result.value || '';
   }
 
-  // Image OCR support for common image types
+  // Images are not supported in this prototype.
   if (mimeType.startsWith('image/') || lower.match(/\.(png|jpe?g|gif|bmp|tiff?)$/)) {
-    // If configured, prefer GPT Vision (OpenAI Responses) for OCR
-    if (process.env.USE_GPT_VISION === '1') {
-      try {
-        return await ocrWithGptVision(fileBuffer, mimeType);
-      } catch (err: any) {
-        const emsg = String(err?.message ?? err ?? '');
-        console.error('GPT Vision OCR error', emsg);
-        // If model is not available, fall back to tesseract if possible.
-        if (emsg.toLowerCase().includes('model_not_found') || emsg.toLowerCase().includes('does not exist')) {
-          console.warn('GPT Vision model not found; attempting local Tesseract fallback');
-          // fall through to tesseract block below
-        } else {
-          throw new Error(emsg || 'Failed to perform OCR with GPT Vision');
-        }
-      }
-    }
-
-    try {
-      // dynamic import so function can still load if dependency is missing
-      const tesseract = await import('tesseract.js').catch((e) => {
-        console.error('tesseract.js import failed', e);
-        throw new Error('OCR dependency missing (tesseract.js). Run `npm install tesseract.js` or enable GPT Vision by setting USE_GPT_VISION=1.');
-      });
-
-      const createWorker = tesseract.createWorker ?? tesseract.default?.createWorker;
-      if (!createWorker) {
-        console.error('createWorker function not found on tesseract module', Object.keys(tesseract));
-        throw new Error('Incompatible tesseract.js export.');
-      }
-
-      const worker = createWorker();
-      await worker.load();
-      // loadLanguage/initialize can be slow; keep English by default
-      await worker.loadLanguage('eng');
-      await worker.initialize('eng');
-      const { data } = await worker.recognize(fileBuffer);
-      await worker.terminate();
-      return data?.text || '';
-    } catch (err: any) {
-      console.error('OCR error', err?.message ?? err);
-      // surface a clear message to the client while keeping the original error in logs
-      throw new Error(err?.message || 'Failed to perform OCR on image');
-    }
+    throw new Error('Images are not supported in this prototype. Please upload a .docx file or provide text/URL.');
   }
 
-  throw new Error('Unsupported file type. Please upload a DOCX or image file.');
+  throw new Error('Unsupported file type. Please upload a DOCX file.');
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

@@ -9,6 +9,42 @@ This repository contains a Vercel + TypeScript backend for a RAG + Voice demo us
 
 See `.env.example` for required environment variables.
 
+Vercel Deployment Protection
+----------------------------
+
+If your Vercel project has Deployment Protection enabled, automated POSTs to your `api` endpoints will receive a Vercel auth page (401) unless you provide a protection bypass token. You can:
+
+- Disable Deployment Protection in the Vercel project settings (less secure).
+- Create a Protection Bypass Token in Vercel and use it in your upload scripts.
+
+Usage with scripts
+------------------
+
+Set the token in an environment variable named `VERCEL_BYPASS_TOKEN` or pass it as an extra CLI argument to the upload scripts. The scripts will append the required query parameters automatically.
+
+Example (PowerShell) — `.docx` upload using the `upload-docx` script:
+
+```
+$env:VERCEL_BYPASS_TOKEN = 'your-token-here'
+node .\scripts\upload-docx.js 'C:\path\to\notes.docx' my-doc-id
+Remove-Item Env:\VERCEL_BYPASS_TOKEN
+```
+
+Or pass token as CLI arg (last parameter):
+
+```
+node .\scripts\upload-docx.js 'C:\path\to\notes.docx' my-doc-id 'your-token-here'
+```
+
+Supported uploads (prototype)
+-----------------------------
+
+- Plain text (JSON): POST `{ "text": "...", "docId": "optional" }` to `/api/upload`
+- URL: POST `{ "url": "https://...", "docId": "optional" }` to `/api/upload` (server will fetch and extract text)
+- Microsoft Word `.docx`: use `scripts/upload-docx.js` or multipart file upload to `/api/upload`
+
+Not supported in this prototype: PDF files and image OCR. Those features are planned for a later rollout.
+
 Supabase schema (run in your DB):
 
 ```sql

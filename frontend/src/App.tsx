@@ -11,6 +11,7 @@ function App() {
   const [rawResponse, setRawResponse] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [urlToUpload, setUrlToUpload] = useState("");
 
   async function callApi(path: string, body?: any) {
     setError("");
@@ -35,12 +36,13 @@ function App() {
 
   async function uploadNotes() {
     if (!notes.trim()) return;
-    await callApi("/api/upload", { text: notes, docId });
+    const data = await callApi("/api/upload", { text: notes, docId });
+    if (data?.docId) setDocId(data.docId);
   }
 
   async function ask() {
     if (!question.trim()) return;
-    const data = await callApi("/api/converse", { query: question });
+    const data = await callApi("/api/converse", { query: question, docId });
     setAnswer(data.answer || "");
   }
 
@@ -54,6 +56,67 @@ function App() {
     setVoiceInfo(`Agent started in channel: ${channel}`);
   }
 
+  async function uploadUrl() {
+    if (!urlToUpload.trim()) return;
+    setError("");
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/upload-url`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: urlToUpload.trim(), docId }),
+      });
+      const data = await res.json();
+      setRawResponse(JSON.stringify(data, null, 2));
+      if (!res.ok) throw new Error(data.error || `Upload failed: ${res.status}`);
+      if (data?.docId) setDocId(data.docId);
+    } catch (e: any) {
+      setError(e.message || String(e));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function uploadFileFromInput(file?: File) {
+    const f = file;
+    if (!f) return;
+    // Basic client-side limit (match server-side limits)
+    const MAX_SIZE = 10 * 1024 * 1024;
+    if (f.size > MAX_SIZE) {
+      setError('File too large. Max 10MB');
+      return;
+    }
+
+    const form = new FormData();
+    form.append('file', f, f.name);
+    if (docId) form.append('docId', docId);
+
+    setError('');
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/upload`, {
+        method: 'POST',
+        body: form,
+      });
+      const data = await res.json();
+      setRawResponse(JSON.stringify(data, null, 2));
+      if (!res.ok) throw new Error(data.error || `Upload failed: ${res.status}`);
+      if (data?.docId) setDocId(data.docId);
+    } catch (e: any) {
+      setError(e.message || String(e));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    uploadFileFromInput(f);
+    // reset the input so the same file can be selected again if needed
+    e.currentTarget.value = '';
+  }
+
   return (
     <div style={{ maxWidth: 720, margin: "24px auto", fontFamily: "system-ui" }}>
       <h2>AgoraLearn Backend Tester</h2>
@@ -61,7 +124,7 @@ function App() {
       <section style={{ marginBottom: 24 }}>
         <h3>1. Upload notes</h3>
         <label>
-          Doc ID:{" "}
+          Doc ID: {" "}
           <input
             value={docId}
             onChange={(e) => setDocId(e.target.value)}
@@ -79,6 +142,27 @@ function App() {
         <button onClick={uploadNotes} disabled={loading || !notes.trim()}>
           {loading ? "Uploading..." : "Upload notes"}
         </button>
+      </section>
+
+      <section style={{ marginBottom: 24 }}>
+        <h3>1b. Upload from URL</h3>
+        <input
+          placeholder="https://example.com/article"
+          value={urlToUpload}
+          onChange={(e) => setUrlToUpload(e.target.value)}
+          style={{ width: "100%", marginBottom: 8 }}
+        />
+        <button onClick={uploadUrl} disabled={loading || !urlToUpload.trim()}>
+          {loading ? "Uploading..." : "Upload URL"}
+        </button>
+      </section>
+
+      <section style={{ marginBottom: 24 }}>
+        <h3>1c. Upload file (.docx or image)</h3>
+        <input type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={handleFileChange} />
+        <div style={{ fontSize: 13, marginTop: 8 }}>
+          Supported: <strong>.docx</strong> files only in this prototype. Images and PDFs are coming soon.
+        </div>
       </section>
 
       <section style={{ marginBottom: 24 }}>

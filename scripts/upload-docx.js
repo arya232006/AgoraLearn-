@@ -19,7 +19,14 @@ async function main() {
   const body = { fileBase64 };
   if (docId) body.docId = docId;
 
-  const res = await fetch(`${API_BASE}/api/upload-doc`, {
+  // Support Vercel protection bypass token via env `VERCEL_BYPASS_TOKEN` or CLI arg (3rd arg)
+  const cliBypass = process.argv[4];
+  const bypassToken = process.env.VERCEL_BYPASS_TOKEN || cliBypass;
+  const uploadUrl = bypassToken
+    ? addBypassQuery(`${API_BASE}/api/upload-doc`, bypassToken)
+    : `${API_BASE}/api/upload-doc`;
+
+  const res = await fetch(uploadUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -32,6 +39,11 @@ async function main() {
 
   const json = await res.json();
   console.log(json);
+}
+
+function addBypassQuery(url, token) {
+  const sep = url.includes('?') ? '&' : '?';
+  return `${url}${sep}x-vercel-set-bypass-cookie=true&x-vercel-protection-bypass=${encodeURIComponent(token)}`;
 }
 
 main().catch((err) => {

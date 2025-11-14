@@ -6,7 +6,14 @@ async function main() {
     docId: "physics-notes-1",
   };
 
-  const res = await fetch('http://localhost:3000/api/upload', {
+  // Allow sending to protected deployment by setting VERCEL_BYPASS_TOKEN env
+  const envBypass = process.env.VERCEL_BYPASS_TOKEN;
+  const urlBase = process.env.AGORA_API_BASE || 'http://localhost:3000';
+  const target = envBypass
+    ? `${urlBase}/api/upload?x-vercel-set-bypass-cookie=true&x-vercel-protection-bypass=${encodeURIComponent(envBypass)}`
+    : `${urlBase}/api/upload`;
+
+  const res = await fetch(target, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
