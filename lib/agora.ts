@@ -24,7 +24,7 @@ export async function agoraSTT(audioBuffer: Buffer): Promise<string> {
       'x-agora-customer-secret': CUSTOMER_SECRET,
       Authorization: `Basic ${basic}`
     },
-    body: audioBuffer
+    body: audioBuffer as any
   });
 
   const status = res.status;
