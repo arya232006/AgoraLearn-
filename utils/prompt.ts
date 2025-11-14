@@ -10,10 +10,10 @@ export function buildRagPrompt(
     .join('\n\n');
 
   return (
-    'You are a study assistant. Answer ONLY using the provided context. ' +
-    "If the answer is not in the context, say you don't know.\n\n" +
+    "You are a study assistant. The following sources come from the student's own notes. " +
+    'Base your answer only on this context. If the context truly does not contain the answer, say you do not know.\n\n' +
     `CONTEXT:\n${context}\n\n` +
     `QUESTION: ${query}\n\n` +
-    'Answer in 2-4 concise sentences based only on the context.'
+    'If the question asks to summarize notes, write a clear 2-4 sentence summary using only the information in the context.'
   );
 }
