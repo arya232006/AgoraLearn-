@@ -1,5 +1,3 @@
-import fetch from 'node-fetch';
-
 const GROQ_ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions';
 
 export async function groqChat(messages: Array<{ role: string; content: string }>, temperature = 0.2) {
@@ -18,7 +16,7 @@ export async function groqChat(messages: Array<{ role: string; content: string }
       'Content-Type': 'application/json',
       Authorization: `Bearer ${key}`
     },
-    body: JSON.stringify(body)
+    body: JSON.stringify(body) as any
   });
 
   if (!res.ok) {
