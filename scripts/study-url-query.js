@@ -4,8 +4,6 @@
 //   node scripts/study-url-query.js "https://..." "Question" existing-doc-id
 //   node scripts/study-url-query.js --help
 
-import fetch from 'node-fetch';
-
 const API_BASE = process.env.AGORA_API_BASE || 'https://agora-learn-uv27.vercel.app';
 
 function printUsage() {
