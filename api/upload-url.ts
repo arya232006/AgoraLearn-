@@ -15,6 +15,24 @@ import crypto from 'crypto';
 
 const MAX_TEXT_LENGTH = 500_000; // same defensive max as upload
 
+// Heuristics to drop noisy chunks from complex HTML (navigation, scripts, etc.)
+const MIN_CHUNK_LENGTH = 100;
+
+function isNoisyChunk(text: string): boolean {
+  if (!text) return true;
+
+  const trimmed = text.trim();
+  if (trimmed.length < MIN_CHUNK_LENGTH) return true;
+
+  const letters = (trimmed.match(/[A-Za-z]/g) ?? []).length;
+  if (letters === 0) return true;
+
+  const letterRatio = letters / trimmed.length;
+  if (letterRatio < 0.6) return true;
+
+  return false;
+}
+
 function stripHtml(html: string): string {
   // Very simple HTML tag stripper; good enough for study articles.
   const withoutScripts = html.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, ' ')
@@ -81,8 +99,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const chunks = chunkText(text);
 
+    const filteredChunks = chunks.filter((chunk) => !isNoisyChunk(chunk));
+
+    if (!filteredChunks.length) {
+      return res.status(400).json({ error: 'All extracted chunks were filtered out as noise' });
+    }
+
     const rows = await Promise.all(
-      chunks.map(async (chunk) => {
+      filteredChunks.map(async (chunk) => {
         const raw = await embedText(chunk);
         const embedding = normalizeEmbedding(raw);
         return { doc_id: docId!, text: chunk, embedding };

@@ -14,6 +14,7 @@ export async function runRAG(
   const { data, error } = await supabase.rpc('match_chunks', {
     query_embedding: qEmbedding,
     match_count: topK,
+    doc_filter: docId ?? null,
   });
   if (error) throw error;
 

@@ -31,11 +31,16 @@ create table expenses (
 );
 
 -- helper function for pgvector similarity
-create or replace function match_chunks(query_embedding vector(384), match_count int)
+create or replace function match_chunks(
+  query_embedding vector(384),
+  match_count int,
+  doc_filter text default null
+)
 returns table(id uuid, doc_id text, text text, embedding vector(384), created_at timestamptz, distance float)
 language sql as $$
   select id, doc_id, text, embedding, created_at, (embedding <-> query_embedding) as distance
   from chunks
+  where doc_filter is null or doc_id = doc_filter
   order by distance
   limit match_count;
 $$;
