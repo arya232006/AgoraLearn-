@@ -41,10 +41,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const body = req.body ?? {};
-    const text = typeof body.text === 'string' ? body.text : undefined;
+    const rawText = typeof body.text === 'string' ? body.text : '';
+    const text = rawText.trim();
     let docId = typeof body.docId === 'string' && body.docId.trim() ? body.docId.trim() : undefined;
 
-    if (!text) return res.status(400).json({ error: 'Missing required field: text (string)' });
+    if (!text) {
+      return res
+        .status(400)
+        .json({ error: 'Missing required field: text (non-empty string)' });
+    }
     if (text.length > MAX_TEXT_LENGTH) {
       return res.status(413).json({ error: `Text too large. Max ${MAX_TEXT_LENGTH} characters allowed.` });
     }
@@ -52,7 +57,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!docId) docId = crypto.randomUUID();
 
     // Chunk the document using helper
-    const chunks = chunkText(text);
+    const chunks = chunkText(text).filter((chunk) => chunk && chunk.trim().length > 0);
+
+    if (chunks.length === 0) {
+      return res.status(400).json({ error: 'No non-empty chunks could be created from text' });
+    }
 
     // Compute embeddings in parallel and prepare rows for insertion
     const rows = await Promise.all(

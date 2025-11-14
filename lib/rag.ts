@@ -19,12 +19,13 @@ export async function runRAG(
   // If a docId is provided, prefer chunks from that document
   if (docId) {
     const filtered = rows.filter((r) => r.doc_id === docId);
-    if (filtered.length) {
-      rows = filtered;
-    }
+    // If no rows match this docId, treat as no context instead of falling back
+    rows = filtered.length ? filtered : [];
   }
 
-  const chunks = rows.map((r) => ({ id: r.id, text: r.text, doc_id: r.doc_id }));
+  const chunks = rows
+    .map((r) => ({ id: r.id, text: r.text, doc_id: r.doc_id }))
+    .filter((c) => c.text && c.text.trim().length > 0);
 
   const prompt = buildRagPrompt(query, chunks.slice(0, topK));
 
