@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Busboy from 'busboy';
-import pdfParse from 'pdf-parse';
+import pdf from 'pdf-parse';
 import mammoth from 'mammoth';
 import { randomUUID } from 'crypto';
 import { chunkText } from '../lib/chunk';
@@ -52,7 +52,7 @@ async function extractTextFromFile(fileBuffer: Buffer, filename: string, mimeTyp
   const lower = filename.toLowerCase();
 
   if (lower.endsWith('.pdf') || mimeType === 'application/pdf') {
-    const result = await pdfParse(fileBuffer);
+    const result = await pdf(fileBuffer as any);
     return result.text || '';
   }
 
