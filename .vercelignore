@@ -1,0 +1,11 @@
+# Ignore redundant/archived API files so Hobby deployments stay under 12 functions
+api/expenses.ts
+api/upload-doc.ts
+api/upload-file.ts
+api/upload-url.ts
+
+# Optionally ignore other heavy or dev-only files
+scripts/**
+tests/**
+README.md
+.github/**
