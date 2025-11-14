@@ -11,17 +11,13 @@ export async function runRAG(
   const qEmbedding = await embedText(query);
 
   // Call a supabase RPC to match vectors (see README schema for `match_chunks` function)
-  const { data, error } = await supabase.rpc('match_chunks', { query_embedding: qEmbedding, match_count: topK });
+  const { data, error } = await supabase.rpc('match_chunks', {
+    query_embedding: qEmbedding,
+    match_count: topK,
+  });
   if (error) throw error;
 
-  let rows = (data ?? []) as any[];
-
-  // If a docId is provided, prefer chunks from that document
-  if (docId) {
-    const filtered = rows.filter((r) => r.doc_id === docId);
-    // If no rows match this docId, treat as no context instead of falling back
-    rows = filtered.length ? filtered : [];
-  }
+  const rows = (data ?? []) as any[];
 
   const chunks = rows
     .map((r) => ({ id: r.id, text: r.text, doc_id: r.doc_id }))
