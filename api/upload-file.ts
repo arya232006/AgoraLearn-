@@ -1,6 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Busboy from 'busboy';
-import pdf from 'pdf-parse';
 import mammoth from 'mammoth';
 import { randomUUID } from 'crypto';
 import { chunkText } from '../lib/chunk';
@@ -51,18 +50,13 @@ function parseMultipart(req: VercelRequest): Promise<{ fileBuffer: Buffer; filen
 async function extractTextFromFile(fileBuffer: Buffer, filename: string, mimeType: string): Promise<string> {
   const lower = filename.toLowerCase();
 
-  if (lower.endsWith('.pdf') || mimeType === 'application/pdf') {
-    const result = await pdf(fileBuffer as any);
-    return result.text || '';
-  }
-
   if (lower.endsWith('.docx') || mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
     const result = await mammoth.extractRawText({ buffer: fileBuffer });
     return result.value || '';
   }
 
-  // For now, unsupported types
-  throw new Error('Unsupported file type. Please upload a PDF or DOCX file.');
+  // For now, only DOCX is supported
+  throw new Error('Unsupported file type. Please upload a DOCX file.');
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

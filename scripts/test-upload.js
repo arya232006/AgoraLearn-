@@ -1,4 +1,4 @@
-const fetch = (...args) => import('node-fetch').then(({ default: f }) => f(...args));
+// Use Node 18+ global fetch instead of node-fetch
 
 async function main() {
   const body = {
