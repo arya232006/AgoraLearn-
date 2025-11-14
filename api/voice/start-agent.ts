@@ -1,5 +1,5 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
-import { startAgoraAgent } from '../../lib/agora';
+import { startAgoraAgent } from '../lib/agora';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
