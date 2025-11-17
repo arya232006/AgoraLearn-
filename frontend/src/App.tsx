@@ -1,10 +1,19 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
+
+function uuidv4() {
+  // Simple UUID v4 generator
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
 
 const API_BASE = "https://agora-learn-uv27.vercel.app"; // TODO: replace after backend deploy
 
 function App() {
   const [notes, setNotes] = useState("");
   const [docId, setDocId] = useState("physics-notes-1");
+  const [conversationId, setConversationId] = useState(uuidv4());
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
   const [voiceInfo, setVoiceInfo] = useState("");
@@ -42,7 +51,7 @@ function App() {
 
   async function ask() {
     if (!question.trim()) return;
-    const data = await callApi("/api/converse", { query: question, docId });
+    const data = await callApi("/api/converse", { query: question, docId, conversationId });
     setAnswer(data.answer || "");
   }
 
@@ -117,6 +126,12 @@ function App() {
     e.currentTarget.value = '';
   }
 
+  // Reset conversationId when docId changes (new topic)
+  function handleDocIdChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setDocId(e.target.value);
+    setConversationId(uuidv4());
+  }
+
   return (
     <div style={{ maxWidth: 720, margin: "24px auto", fontFamily: "system-ui" }}>
       <h2>AgoraLearn Backend Tester</h2>
@@ -127,7 +142,7 @@ function App() {
           Doc ID: {" "}
           <input
             value={docId}
-            onChange={(e) => setDocId(e.target.value)}
+            onChange={handleDocIdChange}
             style={{ width: 220 }}
           />
         </label>
@@ -145,6 +160,9 @@ function App() {
       </section>
 
       <section style={{ marginBottom: 24 }}>
+        <div style={{ fontSize: 13, marginBottom: 8 }}>
+          <strong>Conversation ID:</strong> {conversationId}
+        </div>
         <h3>1b. Upload from URL</h3>
         <input
           placeholder="https://example.com/article"

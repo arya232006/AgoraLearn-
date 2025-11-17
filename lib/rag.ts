@@ -6,7 +6,8 @@ import { groqChat } from './groq';
 export async function runRAG(
   query: string,
   topK = 5,
-  docId?: string
+  docId?: string,
+  history?: Array<{ role: string; content: string }>
 ): Promise<{ answer: string; chunks: Array<{ id: string; text: string; doc_id?: string }> }> {
   const qEmbedding = await embedText(query);
 
@@ -26,10 +27,14 @@ export async function runRAG(
 
   const prompt = buildRagPrompt(query, chunks.slice(0, topK));
 
-  const messages = [
-    { role: 'system', content: 'You are a helpful assistant specialized in study material.' },
-    { role: 'user', content: prompt }
+  // Build messages array with history
+  const messages: Array<{ role: string; content: string }> = [
+    { role: 'system', content: 'You are a helpful assistant specialized in study material.' }
   ];
+  if (history && Array.isArray(history)) {
+    messages.push(...history);
+  }
+  messages.push({ role: 'user', content: prompt });
 
   const answer = await groqChat(messages, 0.2);
 
