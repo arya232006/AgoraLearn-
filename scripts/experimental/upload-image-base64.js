@@ -26,13 +26,20 @@ async function main() {
     mimeType: mime,
     docId
   };
+  console.log('Uploading', filename, '(', (fileBuf.length / 1024).toFixed(1), 'KB ) to', url);
 
   try {
+    // Add a timeout so the script doesn't hang indefinitely
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 60000); // 60s
+
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+      signal: controller.signal
     });
+    clearTimeout(timeout);
     const text = await res.text();
     console.log('Status:', res.status);
     console.log(text);

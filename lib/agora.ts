@@ -153,32 +153,46 @@ export async function startAgoraAgent(opts?: {
   const url = `https://api.agora.io/api/conversational-ai-agent/v2/projects/${APP_ID}/join`;
   const basic = Buffer.from(`${CUSTOMER_ID}:${CUSTOMER_SECRET}`).toString('base64');
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-agora-customer-id': CUSTOMER_ID,
-      'x-agora-customer-secret': CUSTOMER_SECRET,
-      Authorization: `Basic ${basic}`
-    },
-    body: JSON.stringify(body)
-  });
+  let res, text;
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-agora-customer-id': CUSTOMER_ID,
+        'x-agora-customer-secret': CUSTOMER_SECRET,
+        Authorization: `Basic ${basic}`
+      },
+      body: JSON.stringify(body)
+    });
+    text = await res.text();
+  } catch (err) {
+    console.error('startAgoraAgent network error:', err);
+    return { error: 'Network error', detail: String(err) };
+  }
 
-  const text = await res.text();
   if (!res.ok) {
-    let err = `startAgoraAgent failed: ${res.status} ${text}`;
+    // Log full error response
+    console.error('startAgoraAgent failed:', res.status, text);
+    let errorObj = { error: 'Agora agent start failed', status: res.status, detail: text };
     try {
       const j = JSON.parse(text);
-      err = `${res.status} ${JSON.stringify(j)}`;
+      errorObj.detail = j;
     } catch (e) {}
-    throw new Error(err);
+    return errorObj;
   }
 
   try {
     const json = JSON.parse(text);
+    // Defensive: check for required fields
+    if (!json || typeof json !== 'object') {
+      console.error('startAgoraAgent: response missing expected fields', json);
+      return { error: 'Invalid response from Agora', raw: text };
+    }
     return json;
   } catch (e) {
-    return { raw: text };
+    console.error('startAgoraAgent: failed to parse response', text);
+    return { error: 'Failed to parse Agora response', raw: text };
   }
 }
 

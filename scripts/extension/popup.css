@@ -1,0 +1,12 @@
+body {
+  font-family: system-ui, sans-serif;
+  background: #fff;
+  color: #222;
+}
+.dark body {
+  background: #18181b;
+  color: #eee;
+}
+input, button {
+  font-size: 1rem;
+}

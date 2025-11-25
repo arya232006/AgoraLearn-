@@ -13,6 +13,7 @@ import { embedText } from '../lib/embeddings';
 import { supabase } from '../lib/supabase';
 import crypto from 'crypto';
 import mammoth from 'mammoth';
+import { safeParseJson } from '../utils/safeParse';
 
 const MAX_DOC_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 
@@ -39,7 +40,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(405).json({ error: 'Method Not Allowed' });
     }
 
-    const body = req.body ?? {};
+    const body = (await safeParseJson(req)) ?? (req.body ?? {});
     const fileBase64 = typeof body.fileBase64 === 'string' ? body.fileBase64.trim() : '';
     let docId = typeof body.docId === 'string' && body.docId.trim() ? body.docId.trim() : undefined;
 

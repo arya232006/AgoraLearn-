@@ -1,0 +1,13 @@
+HTTP/1.1 405 Method Not Allowed
+cache-control: public, max-age=0, must-revalidate
+server: Vercel
+x-vercel-id: dev1::dev1::i5ukg-1763291084902-8bfdf789ef0b
+x-vercel-cache: MISS
+allow: POST
+connection: close
+content-length: 30
+content-type: application/json; charset=utf-8
+date: Sun, 16 Nov 2025 11:04:44 GMT
+etag: W/"1e-IBweH4Vj7lDovJDf9KQOpDMeplg"
+
+{"error":"Method Not Allowed"}

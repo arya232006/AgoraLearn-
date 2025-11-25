@@ -1,0 +1,1 @@
+{"error":"Unexpected end of form (multipart truncated). This commonly happens with Windows curl sending an `Expect: 100-continue` header. Try adding `-H \"Expect:\"` or `--http1.1` to your curl command, or upload as base64 JSON. Original error: Unexpected end of form","hint":"See server logs for stack and chunk previews"}
