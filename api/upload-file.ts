@@ -28,7 +28,7 @@ function parseMultipart(req: VercelRequest): Promise<{ fileBuffer: Buffer; filen
 
     busboy.on('file', (_fieldname, file, info) => {
       filename = info.filename;
-      mimeType = info.mimeType || info.mime || '';
+      mimeType = info.mimeType || '';
 
       const chunks: Buffer[] = [];
       file.on('data', (d: Buffer) => {
