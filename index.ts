@@ -1,8 +1,12 @@
+// ...existing code...
+import 'dotenv/config';
 import express from 'express';
+import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 const app = express();
+app.use(cors());
 const PORT = process.env.PORT || 3000;
 
 // Helper to import compiled handler
@@ -18,6 +22,8 @@ app.use(express.json());
 app.all('/api/converse', importHandler(path.join(__dirname, 'api', 'converse.js')));
 app.all('/api/health', importHandler(path.join(__dirname, 'api', 'health.js')));
 app.all('/api/upload-file', importHandler(path.join(__dirname, 'api', 'upload-file.js')));
+app.all('/api/upload-binary', importHandler(path.join(__dirname, 'api', 'upload-binary.js')));
+app.all('/api/voice/token-debug', importHandler(path.join(__dirname, 'api', 'voice', 'token-debug.js')));
 // Add other routes here following the same pattern
 
 app.get('/', (_req, res) => {

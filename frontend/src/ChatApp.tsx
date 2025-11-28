@@ -21,6 +21,65 @@ function uuidv4() {
 }
 
 export default function ChatApp() {
+    const [showAskMore, setShowAskMore] = useState(false);
+    const [askMorePosition, setAskMorePosition] = useState<{ x: number; y: number } | null>(null);
+    const [selectedText, setSelectedText] = useState("");
+
+    // Listen for selection changes
+    React.useEffect(() => {
+      function handleSelection() {
+        const selection = window.getSelection();
+        if (!selection || selection.isCollapsed) {
+          setShowAskMore(false);
+          setSelectedText("");
+          return;
+        }
+        const text = selection.toString();
+        // Only show if selection is inside an assistant answer
+        const anchorNode = selection.anchorNode;
+        if (anchorNode) {
+          let el = anchorNode.parentElement;
+          while (el && !el.classList.contains("chat-bubble")) {
+            el = el.parentElement;
+          }
+          if (el && el.classList.contains("assistant")) {
+            setSelectedText(text);
+            const rect = selection.getRangeAt(0).getBoundingClientRect();
+            setAskMorePosition({ x: rect.right + window.scrollX, y: rect.bottom + window.scrollY });
+            setShowAskMore(true);
+            return;
+          }
+        }
+        setShowAskMore(false);
+        setSelectedText("");
+      }
+      document.addEventListener("selectionchange", handleSelection);
+      return () => document.removeEventListener("selectionchange", handleSelection);
+    }, []);
+
+    async function handleAskMore() {
+      if (!selectedText.trim()) return;
+      setShowAskMore(false);
+      setInput("");
+      setMessages((msgs) => [...msgs, { role: "user", content: selectedText, ts: Date.now() }]);
+      setLoading(true);
+      const res = await fetch(`${API_BASE}/api/converse`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: selectedText, docId, conversationId }),
+      });
+      const data = await res.json();
+      setLoading(false);
+      setMessages((msgs) => {
+        const newMsgs = [...msgs, { role: "assistant", content: data.answer || "(no answer)", ts: Date.now() }];
+        setHistory(hist => hist.length === 0 ? [{ id: conversationId, messages: newMsgs }] : hist.map(h => h.id === conversationId ? { ...h, messages: newMsgs } : h));
+        return newMsgs;
+      });
+      setTimeout(() => {
+        const chatEnd = document.getElementById("chat-end");
+        if (chatEnd) chatEnd.scrollIntoView({ behavior: "smooth" });
+      }, 100);
+    }
   const [conversationId] = useState(uuidv4());
   const [messages, setMessages] = useState<Array<{ role: string; content: string; ts?: number; feedback?: 'up'|'down'|null }>>([]);
   const [input, setInput] = useState("");
@@ -144,7 +203,7 @@ export default function ChatApp() {
               ))}
             </div>
           </div>
-          <div className="chat-messages">
+          <div className="chat-messages" style={{ position: 'relative' }}>
             <TooltipProvider>
               {messages.map((msg, i) => {
                 const latexRegex = /\$\$(.*?)\$\$|\$(.*?)\$/gs;
@@ -159,7 +218,10 @@ export default function ChatApp() {
                   });
                 }
                 return (
-                  <div key={i} className={`chat-bubble ${msg.role} flex flex-col gap-1`}>
+                  <div
+                    key={i}
+                    className={`chat-bubble flex flex-col gap-1${msg.role === 'assistant' ? ' assistant' : ''}${msg.role === 'user' ? ' user' : ''}`}
+                  >
                     <div className="chat-meta flex items-center gap-2">
                       <Avatar>
                         <AvatarImage src={msg.role === "user" ? undefined : undefined} />
@@ -189,6 +251,25 @@ export default function ChatApp() {
                   </div>
                 );
               })}
+              {showAskMore && askMorePosition && (
+                <button
+                  style={{
+                    position: 'absolute',
+                    left: askMorePosition.x,
+                    top: askMorePosition.y,
+                    zIndex: 1000,
+                    background: '#fff',
+                    border: '1px solid #888',
+                    borderRadius: '6px',
+                    padding: '6px 12px',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                    cursor: 'pointer',
+                  }}
+                  onClick={handleAskMore}
+                >
+                  Ask more
+                </button>
+              )}
               {loading && <Spinner className="ai-spinner" />}
               <div id="chat-end" />
             </TooltipProvider>
