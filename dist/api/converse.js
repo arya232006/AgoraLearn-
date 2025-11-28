@@ -1,9 +1,36 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = handler;
 const rag_1 = require("../lib/rag");
 const safeParse_1 = require("../utils/safeParse");
 const supabase_1 = require("../lib/supabase");
+const franc_1 = require("franc"); // Language detection
+const node_fetch_1 = __importDefault(require("node-fetch")); // For Lingo.dev API calls
+async function detectLanguage(text) {
+    // Use franc to detect language code (ISO 639-1)
+    const lang = (0, franc_1.franc)(text);
+    // Map franc codes to ISO 639-1 if needed
+    if (lang === 'und')
+        return 'en';
+    return lang;
+}
+async function lingoTranslate(text, targetLang) {
+    // Replace with actual Lingo.dev API endpoint and key
+    const apiKey = process.env.LINGO_API_KEY;
+    const response = await (0, node_fetch_1.default)('https://api.lingo.dev/translate', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({ text, targetLang }),
+    });
+    const data = await response.json();
+    return data.translatedText || text;
+}
 async function handler(req, res) {
     // CORS headers for local dev
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -32,42 +59,30 @@ async function handler(req, res) {
             res.setHeader('Allow', 'POST');
             return res.status(405).json({ error: 'Method Not Allowed' });
         }
+        // Parse request
         const parsed = (await (0, safeParse_1.safeParseJson)(req)) ?? req.body;
         const query = parsed?.query;
         const docId = parsed?.docId;
         const conversationId = parsed?.conversationId;
         const context = parsed?.context;
+        const translate = parsed?.translate;
+        if (translate && translate.text && translate.targetLang) {
+            // Handle translation request
+            const translated = await lingoTranslate(translate.text, translate.targetLang);
+            return res.status(200).json({ translated });
+        }
         if (!query) {
             return res.status(400).json({ error: 'Missing query' });
         }
-        // Fetch conversation history if conversationId is provided
-        let history = [];
-        if (conversationId) {
-            const { data: messages, error } = await supabase_1.supabase
-                .from('messages')
-                .select('role,content')
-                .eq('conversation_id', conversationId)
-                .order('created_at', { ascending: true });
-            if (error) {
-                console.error('Supabase fetch messages error:', error);
-            }
-            else if (messages) {
-                history = messages.map((m) => ({ role: m.role, content: m.content }));
-            }
+        // Detect input language
+        const inputLang = await detectLanguage(query);
+        // Run RAG pipeline
+        const { answer, chunks } = await (0, rag_1.runRAG)(query, 5, docId, []);
+        // Translate answer to input language if needed
+        let finalAnswer = answer;
+        if (inputLang !== 'en') {
+            finalAnswer = await lingoTranslate(answer, inputLang);
         }
-        // If request is from extension (x-extension header), use provided context directly
-        const isExtension = req.headers['x-extension'] === '1';
-        if (isExtension && context && typeof context === 'string' && context.trim().length > 0) {
-            const { answer } = await (0, rag_1.runRAG)(query, 1, undefined, history, [context]);
-            return res.status(200).json({ answer });
-        }
-        // Run RAG with history (normal pipeline)
-        const { answer, chunks } = await (0, rag_1.runRAG)(query, 5, docId, history);
-        // Debug: log retrieved chunks
-        console.debug('Retrieved chunks for query:', query);
-        chunks.forEach((c, idx) => {
-            console.debug(`Chunk ${idx + 1}:`, c.text.slice(0, 200));
-        });
         // Store user query and assistant reply in messages table if conversationId is provided
         if (conversationId) {
             // Store user message
@@ -80,10 +95,10 @@ async function handler(req, res) {
             await supabase_1.supabase.from('messages').insert({
                 conversation_id: conversationId,
                 role: 'assistant',
-                content: answer
+                content: finalAnswer
             });
         }
-        return res.status(200).json({ answer, chunks });
+        return res.status(200).json({ answer: finalAnswer, chunks, inputLang });
     }
     catch (err) {
         console.error('api/converse error:', err);

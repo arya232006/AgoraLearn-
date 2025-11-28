@@ -1,14 +1,14 @@
 
-import React, { useState, useRef } from "react";
-import katex from "katex";
-import "katex/dist/katex.min.css";
-import { Button } from "./components/ui/button";
-import { Card, CardHeader, CardTitle } from "./components/ui/card";
-import { Input } from "./components/ui/input";
+import React, { useState, useRef, useEffect } from "react";
 import { Spinner } from "./components/ui/spinner";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./components/ui/tooltip";
 import { Avatar, AvatarImage, AvatarFallback } from "./components/ui/avatar";
+import { Button } from "./components/ui/button";
+import { Card, CardHeader, CardTitle } from "./components/ui/card";
+import { Input } from "./components/ui/input";
 import { FaUser, FaRobot, FaThumbsUp, FaThumbsDown } from "react-icons/fa";
+import katex from "katex";
+import "katex/dist/katex.min.css";
 import './ChatApp.css';
 
 const API_BASE = "http://localhost:3000"; // Change to your backend URL for local dev
@@ -21,9 +21,74 @@ function uuidv4() {
 }
 
 export default function ChatApp() {
-    const [showAskMore, setShowAskMore] = useState(false);
-    const [askMorePosition, setAskMorePosition] = useState<{ x: number; y: number } | null>(null);
-    const [selectedText, setSelectedText] = useState("");
+  // All hooks and logic
+  const [language, setLanguage] = useState('en');
+  const [showAskMore, setShowAskMore] = useState(false);
+  const [askMorePosition, setAskMorePosition] = useState<{ x: number; y: number } | null>(null);
+  const [selectedText, setSelectedText] = useState("");
+  // ...existing code...
+  const [recording, setRecording] = useState(false);
+  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder|null>(null);
+  const [audioChunks, setAudioChunks] = useState<Blob[]>([]);
+
+  // Start recording
+  const startRecording = async () => {
+    setAudioChunks([]);
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const recorder = new MediaRecorder(stream);
+    setMediaRecorder(recorder);
+    recorder.start();
+    setRecording(true);
+    recorder.ondataavailable = (e) => {
+      setAudioChunks((chunks) => [...chunks, e.data]);
+    };
+    recorder.onstop = () => {
+      setRecording(false);
+      stream.getTracks().forEach(track => track.stop());
+    };
+  };
+
+  // Stop recording and send audio to backend
+  const stopRecording = async () => {
+    if (!mediaRecorder) return;
+    mediaRecorder.stop();
+    setRecording(false);
+    setTimeout(async () => {
+      const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+      console.log('AudioBlob size:', audioBlob.size, 'type:', audioBlob.type);
+      if (audioBlob.size === 0) {
+        alert('No audio recorded. Please try again.');
+        setLoading(false);
+        return;
+      }
+      if (audioBlob.type !== 'audio/webm') {
+        alert('Audio format is not webm. Please use a supported browser.');
+        setLoading(false);
+        return;
+      }
+      const formData = new FormData();
+      formData.append('audio', audioBlob, 'question.webm');
+      formData.append('docId', docId);
+      setLoading(true);
+      const res = await fetch(`${API_BASE}/api/voice-query`, {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+      setLoading(false);
+      setMessages((msgs) => [
+        ...msgs,
+        { role: "user", content: data.question, ts: Date.now() },
+        { role: "assistant", content: data.answer || "(no answer)", ts: Date.now() }
+      ]);
+      setTimeout(() => {
+        const chatEnd = document.getElementById("chat-end");
+        if (chatEnd) chatEnd.scrollIntoView({ behavior: "smooth" });
+      }, 100);
+    }, 500);
+  };
+
+  // ...existing code...
 
     // Listen for selection changes
     React.useEffect(() => {
@@ -99,7 +164,7 @@ export default function ChatApp() {
     const res = await fetch(`${API_BASE}/api/converse`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query: input, docId, conversationId }),
+      body: JSON.stringify({ query: input, docId, conversationId, language }),
     });
     const data = await res.json();
     setLoading(false);
@@ -275,6 +340,31 @@ export default function ChatApp() {
             </TooltipProvider>
           </div>
           <div className="chat-input-row sticky-input flex gap-2 mt-2">
+            {/* Voice Q&A Controls */}
+            <Button
+              variant={recording ? "destructive" : "secondary"}
+              onClick={recording ? stopRecording : startRecording}
+              disabled={loading}
+            >
+              {recording ? "Stop Recording" : "Ask by Voice"}
+            </Button>
+            <select
+              value={language}
+              onChange={e => setLanguage(e.target.value)}
+              style={{ padding: '8px', borderRadius: '6px', border: '1px solid #ccc', marginRight: '8px' }}
+            >
+              <option value="en">English</option>
+              <option value="es">Spanish</option>
+              <option value="fr">French</option>
+              <option value="de">German</option>
+              <option value="hi">Hindi</option>
+              <option value="zh">Chinese</option>
+              <option value="ar">Arabic</option>
+              <option value="ru">Russian</option>
+              <option value="ja">Japanese</option>
+              <option value="pt">Portuguese</option>
+              {/* Add more languages as needed */}
+            </select>
             <Input
               className="chat-input flex-1"
               value={input}

@@ -24,6 +24,7 @@ app.all('/api/health', importHandler(path_1.default.join(__dirname, 'api', 'heal
 app.all('/api/upload-file', importHandler(path_1.default.join(__dirname, 'api', 'upload-file.js')));
 app.all('/api/upload-binary', importHandler(path_1.default.join(__dirname, 'api', 'upload-binary.js')));
 app.all('/api/voice/token-debug', importHandler(path_1.default.join(__dirname, 'api', 'voice', 'token-debug.js')));
+app.all('/api/voice-query', importHandler(path_1.default.join(__dirname, 'api', 'voice-query.js')));
 // Add other routes here following the same pattern
 app.get('/', (_req, res) => {
     res.send('AgoraLearn Express server is running!');

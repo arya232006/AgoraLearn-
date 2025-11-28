@@ -2,6 +2,31 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { runRAG } from '../lib/rag';
 import { safeParseJson } from '../utils/safeParse';
 import { supabase } from '../lib/supabase';
+import { franc } from 'franc'; // Language detection
+import fetch from 'node-fetch'; // For Lingo.dev API calls
+
+async function detectLanguage(text: string): Promise<string> {
+  // Use franc to detect language code (ISO 639-1)
+  const lang = franc(text);
+  // Map franc codes to ISO 639-1 if needed
+  if (lang === 'und') return 'en';
+  return lang;
+}
+
+async function lingoTranslate(text: string, targetLang: string): Promise<string> {
+  // Replace with actual Lingo.dev API endpoint and key
+  const apiKey = process.env.LINGO_API_KEY;
+  const response = await fetch('https://api.lingo.dev/translate', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({ text, targetLang }),
+  });
+  const data = await response.json();
+  return data.translatedText || text;
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // CORS headers for local dev
@@ -31,45 +56,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(405).json({ error: 'Method Not Allowed' });
     }
 
-    const parsed = (await safeParseJson(req)) ?? (req.body as { query?: string; docId?: string; conversationId?: string; context?: string } | undefined);
+    // Parse request
+    const parsed = (await safeParseJson(req)) ?? (req.body as { query?: string; docId?: string; conversationId?: string; context?: string; translate?: { text: string; targetLang: string } } | undefined);
     const query = parsed?.query;
     const docId = parsed?.docId;
     const conversationId = parsed?.conversationId;
     const context = parsed?.context;
+    const translate = parsed?.translate;
+
+    if (translate && translate.text && translate.targetLang) {
+      // Handle translation request
+      const translated = await lingoTranslate(translate.text, translate.targetLang);
+      return res.status(200).json({ translated });
+    }
 
     if (!query) {
       return res.status(400).json({ error: 'Missing query' });
     }
 
-    // Fetch conversation history if conversationId is provided
-    let history: Array<{ role: string; content: string }> = [];
-    if (conversationId) {
-      const { data: messages, error } = await supabase
-        .from('messages')
-        .select('role,content')
-        .eq('conversation_id', conversationId)
-        .order('created_at', { ascending: true });
-      if (error) {
-        console.error('Supabase fetch messages error:', error);
-      } else if (messages) {
-        history = messages.map((m: any) => ({ role: m.role, content: m.content }));
-      }
-    }
+    // Detect input language
+    const inputLang = await detectLanguage(query);
 
-    // If request is from extension (x-extension header), use provided context directly
-    const isExtension = req.headers['x-extension'] === '1';
-    if (isExtension && context && typeof context === 'string' && context.trim().length > 0) {
-      const { answer } = await runRAG(query, 1, undefined, history, [context]);
-      return res.status(200).json({ answer });
-    }
+    // Run RAG pipeline
+    const { answer, chunks } = await runRAG(query, 5, docId, []);
 
-    // Run RAG with history (normal pipeline)
-    const { answer, chunks } = await runRAG(query, 5, docId, history);
-    // Debug: log retrieved chunks
-    console.debug('Retrieved chunks for query:', query);
-    chunks.forEach((c, idx) => {
-      console.debug(`Chunk ${idx + 1}:`, c.text.slice(0, 200));
-    });
+    // Translate answer to input language if needed
+    let finalAnswer = answer;
+    if (inputLang !== 'en') {
+      finalAnswer = await lingoTranslate(answer, inputLang);
+    }
 
     // Store user query and assistant reply in messages table if conversationId is provided
     if (conversationId) {
@@ -83,11 +98,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       await supabase.from('messages').insert({
         conversation_id: conversationId,
         role: 'assistant',
-        content: answer
+        content: finalAnswer
       });
     }
 
-    return res.status(200).json({ answer, chunks });
+    return res.status(200).json({ answer: finalAnswer, chunks, inputLang });
   } catch (err: any) {
     console.error('api/converse error:', err);
     return res.status(500).json({ error: err?.message ?? 'Internal Server Error' });
