@@ -333,12 +333,16 @@ async function handler(req, res) {
             const body = (await (0, safeParse_1.safeParseJson)(req)) ?? (req.body ?? {});
             // text upload
             if (typeof body.text === 'string' && body.text.trim()) {
-                const result = await ingestTextAndStore(body.text, body.docId);
-                return res.status(200).json({ ok: true, ...result });
+                const docId = body.docId || (0, crypto_1.randomUUID)();
+                const result = await ingestTextAndStore(body.text, docId);
+                const respObj = { ok: true, file: { id: docId, name: 'text-upload.txt' }, ...result };
+                console.log('[UPLOAD] Response:', JSON.stringify(respObj));
+                return res.status(200).json(respObj);
             }
             // URL upload
             if (typeof body.url === 'string' && body.url.trim()) {
                 const url = body.url.trim();
+                const docId = body.docId || (0, crypto_1.randomUUID)();
                 const resp = await fetch(url);
                 if (!resp.ok)
                     return res.status(400).json({ error: `Failed to fetch URL: ${resp.status}` });
@@ -348,13 +352,17 @@ async function handler(req, res) {
                     const ab = await resp.arrayBuffer();
                     const buf = Buffer.from(ab);
                     const text = await extractTextFromBuffer(buf, 'download.pdf', 'application/pdf');
-                    const result = await ingestTextAndStore(text, body.docId);
-                    return res.status(200).json({ ok: true, sourceUrl: url, ...result });
+                    const result = await ingestTextAndStore(text, docId);
+                    const respObj = { ok: true, file: { id: docId, name: 'download.pdf' }, sourceUrl: url, ...result };
+                    console.log('[UPLOAD] Response:', JSON.stringify(respObj));
+                    return res.status(200).json(respObj);
                 }
                 const html = await resp.text();
                 const text = stripHtml(html);
-                const result = await ingestTextAndStore(text, body.docId);
-                return res.status(200).json({ ok: true, sourceUrl: url, ...result });
+                const result = await ingestTextAndStore(text, docId);
+                const respObj = { ok: true, file: { id: docId, name: 'download.html' }, sourceUrl: url, ...result };
+                console.log('[UPLOAD] Response:', JSON.stringify(respObj));
+                return res.status(200).json(respObj);
             }
             // base64 file upload (docx or image)
             const fileBase64 = body.fileBase64 || body.file || body.data;
@@ -362,9 +370,12 @@ async function handler(req, res) {
                 const filename = body.filename || 'upload.bin';
                 const mimeType = body.mimeType || guessMimeFromFilename(filename);
                 const buf = Buffer.from(String(fileBase64).replace(/^data:[^;]+;base64,/, ''), 'base64');
+                const docId = body.docId || (0, crypto_1.randomUUID)();
                 const text = await extractTextFromBuffer(buf, filename, mimeType);
-                const result = await ingestTextAndStore(text, body.docId);
-                return res.status(200).json({ ok: true, filename, ...result });
+                const result = await ingestTextAndStore(text, docId);
+                const respObj = { ok: true, file: { id: docId, name: filename }, ...result };
+                console.log('[UPLOAD] Response:', JSON.stringify(respObj));
+                return res.status(200).json(respObj);
             }
             return res.status(400).json({ error: 'Missing action in JSON body (text | url | fileBase64)' });
         }
@@ -374,12 +385,16 @@ async function handler(req, res) {
             const fields = parsed.fields || {};
             // text field
             if (typeof fields.text === 'string' && fields.text.trim()) {
-                const result = await ingestTextAndStore(fields.text, fields.docId);
-                return res.status(200).json({ ok: true, ...result });
+                const docId = fields.docId || (0, crypto_1.randomUUID)();
+                const result = await ingestTextAndStore(fields.text, docId);
+                const respObj = { ok: true, file: { id: docId, name: 'text-upload.txt' }, ...result };
+                console.log('[UPLOAD] Response:', JSON.stringify(respObj));
+                return res.status(200).json(respObj);
             }
             // url field
             if (typeof fields.url === 'string' && fields.url.trim()) {
                 const url = fields.url.trim();
+                const docId = fields.docId || (0, crypto_1.randomUUID)();
                 const resp = await fetch(url);
                 if (!resp.ok)
                     return res.status(400).json({ error: `Failed to fetch URL: ${resp.status}` });
@@ -388,21 +403,61 @@ async function handler(req, res) {
                     const ab = await resp.arrayBuffer();
                     const buf = Buffer.from(ab);
                     const text = await extractTextFromBuffer(buf, 'download.pdf', 'application/pdf');
-                    const result = await ingestTextAndStore(text, fields.docId);
-                    return res.status(200).json({ ok: true, sourceUrl: url, ...result });
+                    const result = await ingestTextAndStore(text, docId);
+                    const respObj = { ok: true, file: { id: docId, name: 'download.pdf' }, sourceUrl: url, ...result };
+                    console.log('[UPLOAD] Response:', JSON.stringify(respObj));
+                    return res.status(200).json(respObj);
                 }
                 const html = await resp.text();
                 const text = stripHtml(html);
-                const result = await ingestTextAndStore(text, fields.docId);
-                return res.status(200).json({ ok: true, sourceUrl: url, ...result });
+                const result = await ingestTextAndStore(text, docId);
+                const respObj = { ok: true, file: { id: docId, name: 'download.html' }, sourceUrl: url, ...result };
+                console.log('[UPLOAD] Response:', JSON.stringify(respObj));
+                return res.status(200).json(respObj);
             }
             // file upload
             if (parsed.fileBuffer) {
+                console.log('[UPLOAD] Received file:', {
+                    filename: parsed.filename,
+                    mimeType: parsed.mimeType,
+                    bufferLength: parsed.fileBuffer?.length,
+                    bufferType: typeof parsed.fileBuffer,
+                });
                 const filename = parsed.filename || 'upload.bin';
                 const mimeType = parsed.mimeType || guessMimeFromFilename(filename);
-                const text = await extractTextFromBuffer(parsed.fileBuffer, filename, mimeType);
-                const result = await ingestTextAndStore(text, fields.docId);
-                return res.status(200).json({ ok: true, filename, ...result });
+                const fileSize = parsed.fileBuffer?.length || 0;
+                let text = '';
+                try {
+                    text = await extractTextFromBuffer(parsed.fileBuffer, filename, mimeType);
+                    console.log('[UPLOAD] PDF/Text extraction succeeded. Text length:', text.length);
+                }
+                catch (err) {
+                    console.error('[UPLOAD] PDF/Text extraction FAILED:', err);
+                    throw err;
+                }
+                // Insert file metadata into files table
+                const docId = fields.docId || (0, crypto_1.randomUUID)();
+                let fileError = null;
+                const insertResult = await supabase_1.supabase.from('files').insert({
+                    id: docId,
+                    name: filename,
+                    size: fileSize,
+                    uploaded_at: new Date().toISOString(),
+                    doc_id: docId,
+                });
+                fileError = insertResult.error;
+                if (fileError) {
+                    console.error('[UPLOAD] Error inserting file metadata:', fileError);
+                }
+                else {
+                    console.log('[UPLOAD] File metadata inserted successfully.');
+                }
+                const result = await ingestTextAndStore(text, docId);
+                console.log('[UPLOAD] Chunking/embedding succeeded. Chunks inserted:', result?.chunksInserted);
+                const respObj = { ok: true, file: { id: docId, name: filename }, ...result };
+                console.log('[UPLOAD] Response:', JSON.stringify(respObj));
+                return res.status(200).json(respObj);
+                // ...existing code...
             }
             return res.status(400).json({ error: 'No file or actionable fields found in multipart body' });
         }

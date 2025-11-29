@@ -21,6 +21,7 @@ app.use(express_1.default.json());
 // Example routes (add more as needed)
 app.all('/api/converse', importHandler(path_1.default.join(__dirname, 'api', 'converse.js')));
 app.all('/api/health', importHandler(path_1.default.join(__dirname, 'api', 'health.js')));
+app.all('/api/upload', importHandler(path_1.default.join(__dirname, 'api', 'upload.js')));
 app.all('/api/upload-file', importHandler(path_1.default.join(__dirname, 'api', 'upload-file.js')));
 app.all('/api/upload-binary', importHandler(path_1.default.join(__dirname, 'api', 'upload-binary.js')));
 app.all('/api/voice/token-debug', importHandler(path_1.default.join(__dirname, 'api', 'voice', 'token-debug.js')));

@@ -287,13 +287,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const body = (await safeParseJson(req)) ?? (req.body ?? {});
       // text upload
       if (typeof body.text === 'string' && body.text.trim()) {
-        const result = await ingestTextAndStore(body.text, body.docId);
-        return res.status(200).json({ ok: true, ...result });
+        const docId = body.docId || randomUUID();
+        const result = await ingestTextAndStore(body.text, docId);
+        const respObj = { ok: true, file: { id: docId, name: 'text-upload.txt' }, ...result };
+        console.log('[UPLOAD] Response:', JSON.stringify(respObj));
+        return res.status(200).json(respObj);
       }
 
       // URL upload
       if (typeof body.url === 'string' && body.url.trim()) {
         const url = body.url.trim();
+        const docId = body.docId || randomUUID();
         const resp = await fetch(url);
         if (!resp.ok) return res.status(400).json({ error: `Failed to fetch URL: ${resp.status}` });
         const contentType = String(resp.headers.get('content-type') || '').toLowerCase();
@@ -302,13 +306,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           const ab = await resp.arrayBuffer();
           const buf = Buffer.from(ab);
           const text = await extractTextFromBuffer(buf, 'download.pdf', 'application/pdf');
-          const result = await ingestTextAndStore(text, body.docId);
-          return res.status(200).json({ ok: true, sourceUrl: url, ...result });
+          const result = await ingestTextAndStore(text, docId);
+          const respObj = { ok: true, file: { id: docId, name: 'download.pdf' }, sourceUrl: url, ...result };
+          console.log('[UPLOAD] Response:', JSON.stringify(respObj));
+          return res.status(200).json(respObj);
         }
         const html = await resp.text();
         const text = stripHtml(html);
-        const result = await ingestTextAndStore(text, body.docId);
-        return res.status(200).json({ ok: true, sourceUrl: url, ...result });
+        const result = await ingestTextAndStore(text, docId);
+        const respObj = { ok: true, file: { id: docId, name: 'download.html' }, sourceUrl: url, ...result };
+        console.log('[UPLOAD] Response:', JSON.stringify(respObj));
+        return res.status(200).json(respObj);
       }
 
       // base64 file upload (docx or image)
@@ -317,9 +325,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const filename: string = body.filename || 'upload.bin';
         const mimeType: string = body.mimeType || guessMimeFromFilename(filename);
         const buf = Buffer.from(String(fileBase64).replace(/^data:[^;]+;base64,/, ''), 'base64');
+        const docId = body.docId || randomUUID();
         const text = await extractTextFromBuffer(buf, filename, mimeType);
-        const result = await ingestTextAndStore(text, body.docId);
-        return res.status(200).json({ ok: true, filename, ...result });
+        const result = await ingestTextAndStore(text, docId);
+        const respObj = { ok: true, file: { id: docId, name: filename }, ...result };
+        console.log('[UPLOAD] Response:', JSON.stringify(respObj));
+        return res.status(200).json(respObj);
       }
 
       return res.status(400).json({ error: 'Missing action in JSON body (text | url | fileBase64)' });
@@ -331,13 +342,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const fields = parsed.fields || {};
       // text field
       if (typeof fields.text === 'string' && fields.text.trim()) {
-        const result = await ingestTextAndStore(fields.text, fields.docId);
-        return res.status(200).json({ ok: true, ...result });
+        const docId = fields.docId || randomUUID();
+        const result = await ingestTextAndStore(fields.text, docId);
+        const respObj = { ok: true, file: { id: docId, name: 'text-upload.txt' }, ...result };
+        console.log('[UPLOAD] Response:', JSON.stringify(respObj));
+        return res.status(200).json(respObj);
       }
 
       // url field
       if (typeof fields.url === 'string' && fields.url.trim()) {
         const url = fields.url.trim();
+        const docId = fields.docId || randomUUID();
         const resp = await fetch(url);
         if (!resp.ok) return res.status(400).json({ error: `Failed to fetch URL: ${resp.status}` });
         const contentType = String(resp.headers.get('content-type') || '').toLowerCase();
@@ -345,22 +360,61 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           const ab = await resp.arrayBuffer();
           const buf = Buffer.from(ab);
           const text = await extractTextFromBuffer(buf, 'download.pdf', 'application/pdf');
-          const result = await ingestTextAndStore(text, fields.docId);
-          return res.status(200).json({ ok: true, sourceUrl: url, ...result });
+          const result = await ingestTextAndStore(text, docId);
+          const respObj = { ok: true, file: { id: docId, name: 'download.pdf' }, sourceUrl: url, ...result };
+          console.log('[UPLOAD] Response:', JSON.stringify(respObj));
+          return res.status(200).json(respObj);
         }
         const html = await resp.text();
         const text = stripHtml(html);
-        const result = await ingestTextAndStore(text, fields.docId);
-        return res.status(200).json({ ok: true, sourceUrl: url, ...result });
+        const result = await ingestTextAndStore(text, docId);
+        const respObj = { ok: true, file: { id: docId, name: 'download.html' }, sourceUrl: url, ...result };
+        console.log('[UPLOAD] Response:', JSON.stringify(respObj));
+        return res.status(200).json(respObj);
       }
 
       // file upload
       if (parsed.fileBuffer) {
-        const filename = parsed.filename || 'upload.bin';
-        const mimeType = parsed.mimeType || guessMimeFromFilename(filename);
-        const text = await extractTextFromBuffer(parsed.fileBuffer, filename, mimeType);
-        const result = await ingestTextAndStore(text, fields.docId);
-        return res.status(200).json({ ok: true, filename, ...result });
+          console.log('[UPLOAD] Received file:', {
+            filename: parsed.filename,
+            mimeType: parsed.mimeType,
+            bufferLength: parsed.fileBuffer?.length,
+            bufferType: typeof parsed.fileBuffer,
+          });
+          const filename = parsed.filename || 'upload.bin';
+          const mimeType = parsed.mimeType || guessMimeFromFilename(filename);
+          const fileSize = parsed.fileBuffer?.length || 0;
+          let text = '';
+          try {
+            text = await extractTextFromBuffer(parsed.fileBuffer, filename, mimeType);
+            console.log('[UPLOAD] PDF/Text extraction succeeded. Text length:', text.length);
+          } catch (err) {
+            console.error('[UPLOAD] PDF/Text extraction FAILED:', err);
+            throw err;
+          }
+          // Insert file metadata into files table
+          const docId = fields.docId || randomUUID();
+          let fileError: any = null;
+          const insertResult = await supabase.from('files').insert({
+            id: docId,
+            name: filename,
+            size: fileSize,
+            uploaded_at: new Date().toISOString(),
+            doc_id: docId,
+          });
+          fileError = insertResult.error;
+          if (fileError) {
+            console.error('[UPLOAD] Error inserting file metadata:', fileError);
+          } else {
+            console.log('[UPLOAD] File metadata inserted successfully.');
+          }
+          const result = await ingestTextAndStore(text, docId);
+          console.log('[UPLOAD] Chunking/embedding succeeded. Chunks inserted:', result?.chunksInserted);
+          const respObj = { ok: true, file: { id: docId, name: filename }, ...result };
+          console.log('[UPLOAD] Response:', JSON.stringify(respObj));
+          return res.status(200).json(respObj);
+
+                // ...existing code...
       }
 
       return res.status(400).json({ error: 'No file or actionable fields found in multipart body' });

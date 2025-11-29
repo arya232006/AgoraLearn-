@@ -19,7 +19,7 @@ async function ocrWithGptVision(fileBuffer, mimeType) {
             {
                 role: 'user',
                 content: [
-                    { type: 'input_text', text: 'Extract all readable text from the provided image. Return only the extracted plain text.' },
+                    { type: 'input_text', text: 'Describe the image and extract all readable text. Return both a caption and any extracted text.' },
                     { type: 'input_image', image_url: dataUrl }
                 ]
             }

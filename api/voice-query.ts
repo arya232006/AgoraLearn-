@@ -47,8 +47,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
       const question = await transcribeAudio(filePath);
       console.log('Transcribed question:', question);
-      // Use your existing chunking and RAG logic
-      const answerObj = await runRAG(question, fields.docId);
+      // Ensure docId is a string, not array
+      let docId = fields.docId;
+      // Normalize docId to string if array or other type
+      if (Array.isArray(docId)) {
+        docId = docId.length > 0 ? String(docId[0]) : undefined;
+      } else if (typeof docId !== 'string') {
+        docId = docId !== undefined && docId !== null ? String(docId) : undefined;
+      }
+      if (docId && docId.startsWith('[') && docId.endsWith(']')) {
+        // If docId is a stringified array, parse and use first element
+        try {
+          const arr = JSON.parse(docId);
+          if (Array.isArray(arr) && arr.length > 0) docId = String(arr[0]);
+        } catch {}
+      }
+      console.log('[VOICE-QUERY DEBUG] Final docId before runRAG:', docId);
+      // runRAG expects: query, topK, docId
+      const answerObj = await runRAG(question, 10, docId);
       console.log('RAG answer:', answerObj);
       return res.status(200).json({ question, answer: answerObj?.answer, debug: { question, answerObj } });
     } catch (e) {

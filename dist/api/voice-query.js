@@ -49,11 +49,33 @@ async function handler(req, res) {
         const filePath = audioFile.filepath || audioFile.path;
         try {
             const question = await transcribeAudio(filePath);
-            // Use your existing chunking and RAG logic
-            const answer = await (0, rag_1.runRAG)(question, fields.docId);
-            return res.status(200).json({ question, answer });
+            console.log('Transcribed question:', question);
+            // Ensure docId is a string, not array
+            let docId = fields.docId;
+            // Normalize docId to string if array or other type
+            if (Array.isArray(docId)) {
+                docId = docId.length > 0 ? String(docId[0]) : undefined;
+            }
+            else if (typeof docId !== 'string') {
+                docId = docId !== undefined && docId !== null ? String(docId) : undefined;
+            }
+            if (docId && docId.startsWith('[') && docId.endsWith(']')) {
+                // If docId is a stringified array, parse and use first element
+                try {
+                    const arr = JSON.parse(docId);
+                    if (Array.isArray(arr) && arr.length > 0)
+                        docId = String(arr[0]);
+                }
+                catch { }
+            }
+            console.log('[VOICE-QUERY DEBUG] Final docId before runRAG:', docId);
+            // runRAG expects: query, topK, docId
+            const answerObj = await (0, rag_1.runRAG)(question, 10, docId);
+            console.log('RAG answer:', answerObj);
+            return res.status(200).json({ question, answer: answerObj?.answer, debug: { question, answerObj } });
         }
         catch (e) {
+            console.error('Voice query error:', e);
             return res.status(500).json({ error: 'Failed to process audio', details: typeof e === 'object' && e !== null && 'message' in e ? e.message : String(e) });
         }
     });

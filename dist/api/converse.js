@@ -62,27 +62,37 @@ async function handler(req, res) {
         // Parse request
         const parsed = (await (0, safeParse_1.safeParseJson)(req)) ?? req.body;
         const query = parsed?.query;
-        const docId = parsed?.docId;
-        const conversationId = parsed?.conversationId;
-        const context = parsed?.context;
-        const translate = parsed?.translate;
-        if (translate && translate.text && translate.targetLang) {
-            // Handle translation request
-            const translated = await lingoTranslate(translate.text, translate.targetLang);
-            return res.status(200).json({ translated });
+        let docId = parsed?.docId;
+        let conversationId = parsed?.conversationId;
+        // Normalize docId to string if array or stringified array
+        if (Array.isArray(docId)) {
+            docId = docId.length > 0 ? String(docId[0]) : undefined;
         }
+        else if (typeof docId !== 'string') {
+            docId = docId !== undefined && docId !== null ? String(docId) : undefined;
+        }
+        if (docId && docId.startsWith('[') && docId.endsWith(']')) {
+            try {
+                const arr = JSON.parse(docId);
+                if (Array.isArray(arr) && arr.length > 0)
+                    docId = String(arr[0]);
+            }
+            catch { }
+        }
+        // Translation is disabled
+        // if (translate && translate.text && translate.targetLang) {
+        //   const translated = await lingoTranslate(translate.text, translate.targetLang);
+        //   return res.status(200).json({ translated });
+        // }
         if (!query) {
             return res.status(400).json({ error: 'Missing query' });
         }
-        // Detect input language
-        const inputLang = await detectLanguage(query);
+        // Detect input language (optional, but translation is disabled)
+        // const inputLang = await detectLanguage(query);
         // Run RAG pipeline
         const { answer, chunks } = await (0, rag_1.runRAG)(query, 5, docId, []);
-        // Translate answer to input language if needed
+        // No translation of answer
         let finalAnswer = answer;
-        if (inputLang !== 'en') {
-            finalAnswer = await lingoTranslate(answer, inputLang);
-        }
         // Store user query and assistant reply in messages table if conversationId is provided
         if (conversationId) {
             // Store user message
@@ -98,7 +108,7 @@ async function handler(req, res) {
                 content: finalAnswer
             });
         }
-        return res.status(200).json({ answer: finalAnswer, chunks, inputLang });
+        return res.status(200).json({ answer: finalAnswer, chunks });
     }
     catch (err) {
         console.error('api/converse error:', err);
