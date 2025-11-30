@@ -5,11 +5,14 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.config = void 0;
 exports.default = handler;
+const detectLanguage = require('./detect-language');
 const rag_1 = require("../lib/rag");
 const formidable_1 = __importDefault(require("formidable"));
 const fs_1 = __importDefault(require("fs"));
 const node_fetch_1 = __importDefault(require("node-fetch"));
 const form_data_1 = __importDefault(require("form-data"));
+const { LingoDotDevEngine } = require('@lingo.dev/_sdk');
+const lingo = new LingoDotDevEngine({ apiKey: process.env.LINGO_API_KEY });
 exports.config = {
     api: {
         bodyParser: false,
@@ -29,6 +32,13 @@ async function transcribeAudio(filePath) {
     });
     const data = await response.json();
     return data.text || '';
+}
+async function translateLingo(text, source, target, context) {
+    if (source === target)
+        return text;
+    // Use context-aware translation if available
+    const result = await lingo._localizeRaw(context ? { text, context } : { text }, { sourceLocale: source, targetLocale: target });
+    return result?.text || '';
 }
 async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -50,6 +60,14 @@ async function handler(req, res) {
         try {
             const question = await transcribeAudio(filePath);
             console.log('Transcribed question:', question);
+            // Detect language of transcribed question
+            const detectedLang = detectLanguage(question);
+            console.log('Detected language:', detectedLang);
+            // Translate to English if needed
+            let queryInEnglish = question;
+            if (detectedLang !== 'en') {
+                queryInEnglish = await translateLingo(question, detectedLang, 'en', null);
+            }
             // Ensure docId is a string, not array
             let docId = fields.docId;
             // Normalize docId to string if array or other type
@@ -70,9 +88,15 @@ async function handler(req, res) {
             }
             console.log('[VOICE-QUERY DEBUG] Final docId before runRAG:', docId);
             // runRAG expects: query, topK, docId
-            const answerObj = await (0, rag_1.runRAG)(question, 10, docId);
+            const answerObj = await (0, rag_1.runRAG)(queryInEnglish, 10, docId);
             console.log('RAG answer:', answerObj);
-            return res.status(200).json({ question, answer: answerObj?.answer, debug: { question, answerObj } });
+            // Translate answer back to user's language with context
+            let answerInUserLang = answerObj?.answer;
+            if (detectedLang !== 'en' && answerInUserLang) {
+                answerInUserLang = await translateLingo(answerObj.answer, 'en', detectedLang, queryInEnglish);
+            }
+            // Always return answer in user's language
+            return res.status(200).json({ question, answer: answerInUserLang, debug: { question, answerObj, detectedLang } });
         }
         catch (e) {
             console.error('Voice query error:', e);
