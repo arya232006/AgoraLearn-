@@ -1,5 +1,8 @@
 // ...existing code...
-import 'dotenv/config';
+require('dotenv').config();
+console.log('ENV DEBUG:', process.env);
+console.log('SUPABASE_URL:', process.env.SUPABASE_URL);
+console.log('SUPABASE_SERVICE_ROLE_KEY:', process.env.SUPABASE_SERVICE_ROLE_KEY);
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
