@@ -16,6 +16,7 @@
     "form-data": "^4.0.5",
     "formidable": "^3.5.4",
     "franc": "^6.2.0",
+    "franc-min": "^6.2.0",
     "jsonwebtoken": "^9.0.2",
     "katex": "^0.16.25",
     "mammoth": "^1.11.0",

@@ -3,7 +3,7 @@
   "locale": {
     "source": "en",
     "targets": [
-      "es"
+      "es", "fr", "it", "de", "hi", "bn", "mr", "ru", "zh", "ja", "ar", "pt", "tr", "ta", "gu", "pa", "ur", "fa", "pl", "uk"
     ]
   },
   "buckets": {
