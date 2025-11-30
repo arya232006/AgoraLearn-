@@ -26,4 +26,4 @@ jobs:
         env:
           LINGODOTDEV_API_KEY: ${{ secrets.LINGODOTDEV_API_KEY }}
         run: |
-          npx lingo.dev run --verbose
+          npx lingo.dev run
