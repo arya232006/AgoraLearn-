@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "AgoraLearn Q&A",
+  "version": "0.1.0",
+  "description": "Ask questions about any page using AgoraLearn.",
+  "permissions": ["scripting", "activeTab"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content-script.js"]
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Ask about this page..."
+  }
+}

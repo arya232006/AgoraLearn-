@@ -1,0 +1,14 @@
+HTTP/1.1 404 Not Found
+cache-control: public, max-age=0, must-revalidate
+server: Vercel
+x-vercel-id: dev1::i5ukg-1763290974521-e23eec2c2983
+x-vercel-cache: MISS
+content-type: text/plain; charset=utf-8
+Date: Sun, 16 Nov 2025 11:02:54 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Content-Length: 40
+
+The page could not be found.
+
+NOT_FOUND
